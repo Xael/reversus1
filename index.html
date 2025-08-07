@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reversus - 4 Jogadores</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="js/core/index.js"></script>
+    <script type="module" src="js/core/shortcuts.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.12.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+<div id="scalable-container">
+    <!-- Audio Elements -->
+    <audio id="music-player" loop></audio>
+    <audio id="sfx-player"></audio>
+    <audio id="popup-sfx-player"></audio>
+    
+    <!-- Sound Controls -->
+    <button id="fullscreen-button" class="sound-button" title="Tela Cheia / Janela">
+        <svg id="fullscreen-icon-enter" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg>
+        <svg id="fullscreen-icon-exit" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="hidden"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"></path></svg>
+    </button>
+    <div class="sound-controls">
+        <button id="mute-button" class="sound-button">||</button>
+        <button id="next-track-button" class="sound-button">&gt;</button>
+        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5">
+    </div>
+
+    <!-- UI Elements -->
+    <div id="achievement-unlocked-toast" class="hidden">
+        <span class="toast-icon">🏆</span>
+        <span id="toast-text"></span>
+    </div>
+
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="modal-overlay">
+        <div id="splash-animation-container"></div>
+        <div class="modal-content splash-content">
+            <img src="logo.png" alt="Reversus Logo" id="splash-logo" class="splash-logo">
+            <div class="splash-button-container">
+                <div class="button-group vertical">
+                    <button id="quick-start-button" class="control-button btn-p1-color">Início Rápido</button>
+                    <button id="story-mode-button" class="control-button btn-p3-color">Modo História</button>
+                    <button id="continue-button" class="control-button btn-p4-color" disabled>CONTINUAR</button>
+                    <button id="achievements-button" class="control-button btn-neutral-color hidden">Conquistas</button>
+                    <button id="instructions-button" class="control-button btn-neutral-color">Instruções</button>
+                    <button id="credits-button" class="control-button btn-secondary-color">Créditos</button>
+                    <button id="pvp-mode-button" class="control-button btn-p2-color hidden">PVP Online</button>
+                    <button id="ranking-button" class="control-button btn-neutral-color hidden">RANKING EM BREVE</button>
+                    <button id="inversus-mode-button" class="control-button btn-inversus-color hidden">INVERSUS</button>
+                </div>
+            </div>
+             <div id="version-footer">Versão Final 1.0</div>
+        </div>
+    </div>
+
+    <!-- How to Play Modal -->
+    <div id="rules-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Como Jogar Reversus</h2>
+            <div class="rules-content">
+                <p><strong>Objetivo:</strong> Ser o primeiro jogador (ou dupla) a levar seu peão até a casa 10 do tabuleiro.</p>
+                <p><strong>O Turno:</strong> No seu turno, você pode jogar cartas de efeito livremente e deve seguir a regra abaixo para cartas de valor. Depois, passe o turno.</p>
+                
+                <p><strong>Regra das Cartas de Valor (Universal):</strong></p>
+                <ul>
+                    <li>Se você tiver <strong>2 ou mais</strong> cartas de valor na mão, você <strong>DEVE</strong> jogar exatamente <strong>uma</strong> por turno.</li>
+                    <li>Se você tiver apenas <strong>1</strong> carta de valor, você <strong>NÃO PODE</strong> jogá-la. Ela ficará bloqueada para ser usada como "Resto".</li>
+                    <li>A carta de valor jogada se torna seu novo "Resto" para a próxima rodada.</li>
+                </ul>
+
+                <p><strong>Fim da Rodada:</strong> A rodada termina quando todos os jogadores passam o turno consecutivamente. A pontuação é calculada e os peões se movem.</p>
+                <ul>
+                    <li><strong>Vencedor(es):</strong> Avançam 1 casa.</li>
+                    <li><strong>Efeitos 'Sobe'/'Desce':</strong> Movem seu peão para cima ou para baixo.</li>
+                    <li><strong>Efeitos 'Mais'/'Menos':</strong> Somam ou subtraem o valor do seu "Resto" da sua pontuação.</li>
+                </ul>
+                <p><strong>Cartas Especiais:</strong></p>
+                <ul>
+                    <li><strong>Pula:</strong> Força um oponente a mover seu peão para um caminho vazio no tabuleiro.</li>
+                    <li><strong>Reversus:</strong> Inverte um efeito ('Mais' vira 'Menos', 'Sobe' vira 'Desce', etc.) em um único jogador.</li>
+                    <li><strong>Reversus Total:</strong> A carta mais poderosa. Inverte TODOS os efeitos em TODOS os jogadores na rodada (efeito Global). Pode também ser usada para aplicar e travar um efeito básico ('Mais', 'Menos', etc.) em um único alvo por uma rodada (efeito Individual).</li>
+                </ul>
+                 <p><strong>Efeitos de Campo:</strong> Parar em casas coloridas no tabuleiro ativa efeitos especiais que duram a rodada inteira!</p>
+            </div>
+            <button id="close-rules-button" class="control-button">Fechar</button>
+        </div>
+    </div>
+    
+    <!-- Credits Modal -->
+    <div id="credits-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Créditos</h2>
+            <p>O jogo "Reversus" foi criado por Xael em 2023 com o tema "Corrida para o Altar" em forma de Card Game + Tabuleiro, para recolher fundos para o seu casamento - e agora estamos nesta versão (22/07/2025), lembrando que, ainda em desenvolvimento.</p>
+            <p>Por hora aproveite nesta versão os modos de jogo:</p>
+            <ul style="list-style-position: inside; text-align: left; margin: 0.5rem 0;">
+                <li>Partida Rápido</li>
+                <li>Modo História</li>
+            </ul>
+            <p>Meus agradecimentos especiais a todos os que apoiaram este projeto desde o início.</p>
+            <button id="close-credits-button" class="control-button">Fechar</button>
+        </div>
+    </div>
+    
+    <!-- Achievements Modal -->
+    <div id="achievements-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Conquistas</h2>
+            <div id="achievements-grid" class="achievements-grid">
+                <!-- Achievements will be rendered here -->
+            </div>
+            <button id="close-achievements-button" class="control-button">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Story Mode Modal -->
+    <div id="story-mode-modal" class="modal-overlay hidden">
+        <div id="story-stars-background"></div>
+        <div id="story-scene-1" class="story-scene">
+            <!-- Stars will be generated here by JS -->
+        </div>
+        <div id="story-screen-flash" class="hidden"></div>
+        <div id="story-scene-dialogue" class="story-scene hidden">
+            <img src="" alt="Story Character" id="story-character-image" class="story-character-img" style="opacity: 0;" data-image-name="">
+            <div id="story-dialogue-box">
+                <p id="story-dialogue-text"></p>
+                <div id="story-dialogue-options" class="button-group"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Game UI -->
+    <div id="app-container" class="app-container hidden">
+        <div class="left-panel">
+            <div class="logo-container">
+                <img src="logo.png" alt="Reversus Logo" class="game-logo">
+            </div>
+            <div id="game-timer-container">00:00</div>
+            <div class="chat-container">
+                <h2>Histórico do Jogo</h2>
+                <div id="game-log" class="game-log"></div>
+                <div id="chat-input-area" class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Enviar mensagem...">
+                    <button id="chat-send-button" class="control-button">Enviar</button>
+                </div>
+            </div>
+        </div>
+        <div class="center-panel">
+            <div class="center-panel-header">
+                <div id="reversus-total-indicator" class="hidden">Reversus Total Ativo!</div>
+                <div id="team-scores-container" class="team-scores-container hidden"></div>
+            </div>
+            <div class="board-and-scores-wrapper">
+                <div id="left-score-box" class="side-score-box player-1-score hidden">
+                    <span id="left-score-value">0</span>
+                    <span id="left-score-status" class="side-score-status"></span>
+                </div>
+                <div id="game-board" class="game-board"></div>
+                <div id="right-score-box" class="side-score-box player-2-score hidden">
+                    <span id="right-score-value">0</span>
+                    <span id="right-score-status" class="side-score-status"></span>
+                </div>
+            </div>
+            <div id="player-1-area-container">
+                 <!-- Player 1 Area will be rendered here -->
+            </div>
+            <div class="actions-container">
+                 <button id="play-button" class="control-button" disabled>Jogar Carta</button>
+                 <button id="end-turn-button" class="control-button secondary" disabled>Passar Turno</button>
+            </div>
+        </div>
+        <div id="opponent-zones-container" class="right-panel">
+            <!-- Opponent Areas will be rendered here -->
+        </div>
+    </div>
+    
+    <!-- Other Modals & Overlays -->
+    <div id="cosmic-glow-overlay" class="hidden"></div>
+    <div id="xael-popup" class="hidden"><img src="xael.png" alt="Xael Challenge"></div>
+    
+    <div id="game-setup-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Modo de Jogo</h2>
+            <p>Escolha como você quer jogar contra a I.A.</p>
+            <div class="button-group">
+                <button id="solo-2p-button" class="control-button">1 vs 1</button>
+                <button id="solo-3p-button" class="control-button">1 vs 2</button>
+                <button id="solo-4p-button" class="control-button">1 vs 3</button>
+                <button id="duo-mode-button" class="control-button secondary">2 vs 2</button>
+            </div>
+            <button id="close-setup-button" class="control-button cancel" style="margin-top: 1rem;">Voltar</button>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="game-over-title">Fim de Jogo!</h2>
+            <p id="game-over-message">O vencedor é...</p>
+            <button id="restart-button" class="control-button">Jogar Novamente</button>
+        </div>
+    </div>
+    
+    <div id="target-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Alvo para <span id="target-modal-card-name"></span></h2>
+            <p>Selecione o jogador alvo:</p>
+            <div id="target-player-buttons" class="button-group"></div>
+            <button id="target-cancel-button" class="control-button cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="reversus-target-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Alvo para Reversus</h2>
+            <p>Qual tipo de efeito você quer reverter no alvo?</p>
+            <div class="button-group">
+                <button id="reversus-target-score" class="control-button">Pontuação (Mais/Menos)</button>
+                <button id="reversus-target-movement" class="control-button secondary">Movimento (Sobe/Desce)</button>
+            </div>
+            <button id="reversus-target-cancel" class="control-button cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="reversus-total-choice-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Escolha o Efeito da Reversus Total</h2>
+            <p>Como você deseja usar esta carta?</p>
+            <div class="button-group">
+                <button id="reversus-total-global-button" class="control-button">Reversus Total (Inverte Tudo)</button>
+                <button id="reversus-total-individual-button" class="control-button secondary">Reversus Individual (Trava 1 Efeito)</button>
+            </div>
+            <button id="reversus-total-choice-cancel" class="control-button cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="reversus-individual-effect-choice-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Reversus Individual</h2>
+            <p>Escolha um efeito para aplicar e travar no alvo:</p>
+            <div id="reversus-individual-effect-buttons" class="button-group">
+                <button class="control-button" data-effect="Mais">Mais</button>
+                <button class="control-button" data-effect="Menos">Menos</button>
+                <button class="control-button secondary" data-effect="Sobe">Sobe</button>
+                <button class="control-button secondary" data-effect="Desce">Desce</button>
+            </div>
+            <button id="reversus-individual-cancel-button" class="control-button cancel">Cancelar</button>
+        </div>
+    </div>
+    
+    <div id="pula-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="pula-modal-title">Jogar 'Pula'</h2>
+            <p id="pula-modal-text">Escolha um caminho vazio para o jogador pular:</p>
+            <div id="pula-path-buttons" class="button-group vertical"></div>
+            <button id="pula-cancel-button" class="control-button cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="path-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="path-selection-modal-title">Escolha de Caminho</h2>
+            <p id="path-selection-modal-text">Escolha um caminho para seguir nesta rodada:</p>
+            <div id="path-selection-buttons" class="button-group vertical"></div>
+        </div>
+    </div>
+
+    <div id="draw-start-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="draw-start-title">Sorteio Inicial</h2>
+            <div id="draw-start-cards-container" class="draw-start-cards-container"></div>
+            <p id="draw-start-result-message" class="draw-result-message"></p>
+        </div>
+    </div>
+    
+    <div id="round-summary-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="round-summary-title">Fim da Rodada 1</h2>
+            <p id="round-summary-winner-text">Vencedor: Jogador X</p>
+            <div id="round-summary-scores"></div>
+            <button id="next-round-button" class="control-button">Próxima Rodada</button>
+        </div>
+    </div>
+
+    <div id="field-effect-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+             <h2 id="field-effect-title">Efeito de Campo Ativado!</h2>
+             <div class="field-effect-card positive">
+                <h3 id="field-effect-name">Nome do Efeito</h3>
+                <p id="field-effect-description">Descrição do que o efeito faz.</p>
+             </div>
+             <button id="field-effect-continue-button" class="control-button">Continuar</button>
+        </div>
+    </div>
+
+    <div id="versatrix-field-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+             <div class="field-effect-card versatrix">
+                <h3 id="versatrix-field-name">Casa de Versatrix!</h3>
+                <p id="versatrix-field-description">Se cair aqui volte uma casa imediatamente. Se for a Versatrix, avance uma casa imediatamente.</p>
+             </div>
+             <button id="versatrix-field-continue-button" class="control-button">Continuar</button>
+        </div>
+    </div>
+    
+    <div id="field-effect-info-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+             <h2 id="field-effect-info-title">Efeito de Campo Ativo</h2>
+             <div class="field-effect-card positive">
+                <h3 id="field-effect-info-name">Nome do Efeito</h3>
+                <p id="field-effect-info-description">Descrição do que o efeito faz.</p>
+             </div>
+             <button id="field-effect-info-close-button" class="control-button">Fechar</button>
+        </div>
+    </div>
+    
+    <div id="versatrix-card-info-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+             <h2 id="versatrix-card-info-title">Carta da Versatrix</h2>
+             <div class="field-effect-card versatrix">
+                <h3 id="versatrix-card-info-name">Poder da Rainha</h3>
+                <p id="versatrix-card-info-description">Ao usar esta carta, você compra 2 novas cartas de efeito. A Carta da Versatrix entrará em recarga por 3 rodadas.</p>
+             </div>
+             <button id="versatrix-card-info-continue-button" class="control-button">Entendido!</button>
+        </div>
+    </div>
+
+    <div id="card-viewer-modal" class="modal-overlay hidden">
+        <div class="modal-content card-viewer-content">
+            <img src="" id="card-viewer-image" alt="Carta em tamanho grande">
+            <button id="card-viewer-close" class="control-button">Fechar</button>
+        </div>
+    </div>
+
+    <div id="pvp-room-list-modal" class="modal-overlay hidden">
+        <div class="modal-content pvp-modal-content">
+            <div class="pvp-header">
+                <img src="logo.png" alt="Reversus Logo" class="pvp-header-logo">
+                <h2>Salas PvP Online</h2>
+            </div>
+            <div class="room-grid">
+                <!-- Room cards will be rendered here -->
+            </div>
+            <button id="pvp-room-list-close-button" class="control-button cancel">Voltar ao Menu</button>
+        </div>
+    </div>
+
+    <div id="pvp-username-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Crie um Nome de Usuário</h2>
+            <p>Seu nome será exibido para outros jogadores.</p>
+            <input type="text" id="pvp-username-input" placeholder="Digite seu nome..." maxlength="15">
+            <div class="button-group" style="margin-top: 1rem;">
+                <button id="pvp-username-submit" class="control-button">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="pvp-password-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Senha da Sala</h2>
+            <input type="password" id="pvp-password-input" placeholder="Digite a senha...">
+            <div class="button-group">
+                <button id="pvp-password-submit" class="control-button">Entrar</button>
+                <button id="pvp-password-cancel" class="control-button cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pvp-lobby-modal" class="modal-overlay hidden">
+        <div class="modal-content pvp-lobby-content">
+            <div class="lobby-header">
+                <h2>Lobby da Sala</h2>
+                <button id="pvp-lobby-close-button" class="control-button cancel">Sair da Sala</button>
+            </div>
+            <div class="lobby-main-area">
+                <div class="lobby-player-grid">
+                    <div class="lobby-player-slot" id="lobby-player-1">Você <span class="master-star">★</span></div>
+                    <div class="lobby-player-slot" id="lobby-player-2">Aguardando...</div>
+                    <div class="lobby-player-slot" id="lobby-player-3">Aguardando...</div>
+                    <div class="lobby-player-slot" id="lobby-player-4">Aguardando...</div>
+                </div>
+                <div class="lobby-config-panel">
+                    <img src="logo.png" alt="Reversus Logo" class="lobby-logo">
+                    <div class="lobby-config-item">
+                        <label for="lobby-game-mode">Modo de Jogo:</label>
+                        <select id="lobby-game-mode">
+                            <option value="solo-2p">1 vs 1</option>
+                            <option value="solo-3p">1 vs 2</option>
+                            <option value="solo-4p" selected>1 vs 3</option>
+                            <option value="duo">2 vs 2</option>
+                        </select>
+                    </div>
+                     <div id="lobby-ai-config" class="hidden" style="width: 100%;">
+                        <hr class="lobby-divider">
+                         <div class="lobby-config-item" id="lobby-ai-p2-container">
+                            <label id="lobby-ai-p2-label" for="lobby-ai-p2">Oponente 1 (I.A.):</label>
+                            <select id="lobby-ai-p2">
+                                <option value="default">Padrão</option>
+                                <option value="contravox">Contravox</option>
+                                <option value="versatrix">Versatrix</option>
+                                <option value="reversum">Rei Reversum</option>
+                                <option value="necroverso">Necroverso</option>
+                                <option value="necroverso_final">Necroverso Final</option>
+                                <option value="xael">Xael</option>
+                                <option value="narrador">Narrador</option>
+                                <option value="inversus">Inversus</option>
+                            </select>
+                        </div>
+                         <div class="lobby-config-item" id="lobby-ai-p3-container">
+                            <label id="lobby-ai-p3-label" for="lobby-ai-p3">Oponente 2 (I.A.):</label>
+                            <select id="lobby-ai-p3">
+                                <option value="default">Padrão</option>
+                                <option value="contravox">Contravox</option>
+                                <option value="versatrix">Versatrix</option>
+                                <option value="reversum">Rei Reversum</option>
+                                <option value="necroverso">Necroverso</option>
+                                <option value="necroverso_final">Necroverso Final</option>
+                                <option value="xael">Xael</option>
+                                <option value="narrador">Narrador</option>
+                                <option value="inversus">Inversus</option>
+                            </select>
+                        </div>
+                         <div class="lobby-config-item" id="lobby-ai-p4-container">
+                            <label for="lobby-ai-p4">Oponente 3 (I.A.):</label>
+                            <select id="lobby-ai-p4">
+                                <option value="default">Padrão</option>
+                                <option value="contravox">Contravox</option>
+                                <option value="versatrix">Versatrix</option>
+                                <option value="reversum">Rei Reversum</option>
+                                <option value="necroverso">Necroverso</option>
+                                <option value="necroverso_final">Necroverso Final</option>
+                                <option value="xael">Xael</option>
+                                <option value="narrador">Narrador</option>
+                                <option value="inversus">Inversus</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="lobby-note">(Apenas o líder da sala pode alterar)</p>
+                    <button id="lobby-start-game-button" class="control-button">Iniciar Partida</button>
+                </div>
+            </div>
+            <div class="lobby-chat">
+                <div id="lobby-chat-history" class="lobby-chat-history"></div>
+                <div class="lobby-chat-input-area">
+                    <input type="text" id="lobby-chat-input" placeholder="Digite sua mensagem...">
+                    <button id="lobby-chat-send-button" class="control-button">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="turn-announce-modal" class="turn-announce-overlay hidden">
+        <div class="turn-announce-content">Sua Vez</div>
+    </div>
+    
+    <div id="effect-announcer" class="effect-announcer-overlay hidden"></div>
+    <div id="necro-x-animation-overlay" class="modal-overlay hidden">
+        <img src="necroverso2.png" id="necro-x-caster-img" alt="Necroverso Caster">
+        <img src="cartanecroverso.png" id="necro-x-card-img" alt="Necro X Card">
+    </div>
+    <div id="reversus-total-bg-animation" class="hidden"></div>
+    
+    <div id="fullscreen-announce-modal" class="modal-overlay hidden">
+        <div id="fullscreen-announce-content">
+            <img src="" id="fullscreen-announce-image" alt="Anúncio de Chefe">
+            <p id="fullscreen-announce-text"></p>
+        </div>
+    </div>
+
+    <button id="debug-button" title="Menu da Partida">&#9881;</button>
+    <button id="xael-star-power" class="hidden" title="Poder Estelar do Xael (Revela mãos)">⭐</button>
+
+    <!-- In-Game Menu & Confirmation Modals -->
+    <div id="game-menu-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Menu da Partida</h2>
+            <div class="button-group vertical">
+                <button id="menu-save-game-button" class="control-button secondary">Salvar Jogo</button>
+                <button id="menu-exit-game-button" class="control-button cancel">Sair da Partida</button>
+            </div>
+             <button id="game-menu-close-button" class="control-button secondary" style="margin-top: 1rem;">Voltar ao Jogo</button>
+        </div>
+    </div>
+    
+    <div id="save-game-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Salvar Jogo</h2>
+            <p>Deseja salvar estado atual do jogo?</p>
+            <div class="button-group">
+                <button id="save-game-yes-button" class="control-button">Sim</button>
+                <button id="save-game-no-button" class="control-button secondary">Não</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exit-game-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Sair da Partida</h2>
+            <p>Deseja sair e voltar ao menu principal? O progresso não salvo será perdido.</p>
+            <div class="button-group">
+                <button id="exit-game-yes-button" class="control-button cancel">Sim, Sair</button>
+                <button id="exit-game-no-button" class="control-button secondary">Não</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="xael-power-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Ativar Poder Estelar?</h2>
+            <p>A habilidade "Revelação Estelar" revelará as mãos de todos os oponentes por uma rodada inteira. Esta ação não pode ser desfeita.</p>
+            <div class="button-group">
+                <button id="xael-power-confirm-yes" class="control-button">Ativar</button>
+                <button id="xael-power-confirm-no" class="control-button secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Endgame Sequence -->
+    <div id="endgame-sequence-modal" class="modal-overlay hidden">
+        <div id="endgame-character-container">
+            <!-- Characters will be dynamically added here -->
+        </div>
+        <div id="endgame-dialogue-box">
+            <p id="endgame-dialogue-text"></p>
+            <div id="endgame-dialogue-options" class="button-group"></div>
+        </div>
+    </div>
+
+    <!-- Credits Roll -->
+    <div id="credits-roll-modal" class="modal-overlay hidden">
+        <div id="credits-content">
+            <!-- Credits will be populated here -->
+        </div>
+    </div>
+
+</div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

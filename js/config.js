@@ -1,0 +1,1 @@
+// This file is obsolete. Moved to js/core/config.js

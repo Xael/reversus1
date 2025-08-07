@@ -1,0 +1,1 @@
+// This file is obsolete. Moved to js/story/story-abilities.js
